@@ -44,8 +44,17 @@ def index_to_position(index: Index, strides: Strides) -> int:
         Position in storage
 
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    if len(index) == 0 or len(strides) == 0:
+        return 0
+    
+    if len(index) != len(strides):
+        raise ValueError("Index and strides must have the same length")
+    
+    position = 0
+    for i in range(len(index)):
+        position += index[i] * strides[i]
+    
+    return position
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -58,11 +67,19 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         ordinal: ordinal position to convert.
         shape : tensor shape.
         out_index : return index corresponding to position.
-
+    
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
-
+    total_size = 1
+    for dim in shape:
+        total_size *= dim
+    
+    if ordinal >= total_size:
+        raise ValueError(f"Ordinal {ordinal} is out of range for shape {shape}")
+    
+    for i in range(len(shape) -1, -1, -1):
+        out_index[i] = ordinal % shape[i]
+        ordinal = ordinal // shape[i]
+    
 
 def broadcast_index(
     big_index: Index, big_shape: Shape, shape: Shape, out_index: OutIndex
@@ -83,8 +100,23 @@ def broadcast_index(
         None
 
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    # Calculate how much padding is needed for alignment
+    pad_amount = len(big_shape) - len(shape)
+    padded_shape = (1,) * pad_amount + shape  # Align dimensions by padding
+
+    # Loop through dimensions of the big tensor from last to first
+    for i in range(len(big_shape) - 1, -1, -1):
+        if padded_shape[i] == 1:
+            # If the dimension in the smaller tensor is 1, it maps to 0 in out_index
+            out_index[i - pad_amount] = 0
+        elif big_shape[i] != padded_shape[i]:
+            # Raise an error if the dimensions don't match for broadcasting
+            raise IndexingError(
+                f"Index {big_index} is out of range for shape {big_shape}"
+            )
+        else:
+            # Otherwise, copy the index from the big tensor to out_index
+            out_index[i - pad_amount] = big_index[i]
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -101,8 +133,24 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         IndexingError : if cannot broadcast
 
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    s1 = list(shape1)
+    s2 = list(shape2)
+
+    max_len = max(len(s1), len(s2))
+    s1 = [1] * (max_len - len(s1)) + s1
+    s2 = [1] * (max_len - len(s2)) + s2
+
+    new_shape = []
+    for i in range(max_len):
+        d1 = s1[i]
+        d2 = s2[i]
+        if d1 == 1 or d2 == 1 or d1 == d2:
+            new_shape.append(max(d1, d2))
+        else:
+            raise IndexingError(f"Shapes cannot be broadcasted: {shape1} and {shape2}")
+    
+    return tuple(new_shape)
+    
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
@@ -231,8 +279,10 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        # TODO: Implement for Task 2.1.
-        raise NotImplementedError("Need to implement for Task 2.1")
+        new_shape = tuple(self.shape[i] for i in order)
+        new_strides = tuple(self.strides[i] for i in order)
+
+        return TensorData(self._storage, new_shape, new_strides)
 
     def to_string(self) -> str:
         """Convert to string"""
