@@ -266,7 +266,7 @@ def tensor_map(
         in_index = [0] * len(in_shape)
 
         #Iterate over all elements in the output tensor
-        for i in range(operators.prod(out_shape)):
+        for i in range(int(operators.prod(out_shape))):
             # Step 1 & 2: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 
@@ -330,7 +330,7 @@ def tensor_zip(
         b_index = [0] * len(b_shape)
 
         #Iterate overall all elements in the output tensor
-        for i in range(operators.prod(out_shape)):
+        for i in range(int(operators.prod(out_shape))):
             #Step 1 & 2: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 
@@ -379,7 +379,7 @@ def tensor_reduce(
         a_index = [0] * len(a_shape)
 
         # Step 2: Iterate over all elements in the output tensor
-        for i in range(operators.prod(out_shape)):
+        for i in range(int(operators.prod(out_shape))):
             # Step 3: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 

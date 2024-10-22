@@ -128,6 +128,9 @@ class Tensor:
 
     def __repr__(self) -> str:
         return self._tensor.to_string()
+    
+    def __hash__(self) -> float:
+        return hash(self.unique_id)
 
     def __getitem__(self, key: Union[int, UserIndex]) -> float:
         key2 = (key,) if isinstance(key, int) else key
@@ -330,9 +333,10 @@ class Tensor:
         """Sum the elements of the tensor across a dimension"""
         if dim is None:
             # Sum all elements
-            return Sum.apply(self.contiguous().view(self.size), 0)
-        return Sum.apply(self, dim)
-
+            return Sum.apply(self.contiguous().view(self.size), Tensor.make([0], (1,), backend=self.backend))
+        else:
+            return Sum.apply(self, Tensor.make([dim], (1,), backend=self.backend))
+    
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean the elements of the tensor across a dimension"""
         if dim in None:
@@ -351,9 +355,10 @@ class Tensor:
     def all(self, dim: Optional[int] = None) -> Tensor:
         return All.apply(self, tensor([dim]) if dim is not None else None)
     
-    def zero_grad(self) -> None:
+    def zero_grad_(self) -> None:
         """Reset the gradient of the tensor"""
-        self.grad = None
+        if self.grad is not None:
+            self.grad = self.zeros(self.shape)
 
     @property
     def shape(self) -> UserShape:

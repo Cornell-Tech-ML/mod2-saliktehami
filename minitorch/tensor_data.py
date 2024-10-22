@@ -100,23 +100,24 @@ def broadcast_index(
         None
 
     """
-    # Calculate how much padding is needed for alignment
-    pad_amount = len(big_shape) - len(shape)
-    padded_shape = (1,) * pad_amount + shape  # Align dimensions by padding
-
-    # Loop through dimensions of the big tensor from last to first
-    for i in range(len(big_shape) - 1, -1, -1):
-        if padded_shape[i] == 1:
-            # If the dimension in the smaller tensor is 1, it maps to 0 in out_index
-            out_index[i - pad_amount] = 0
-        elif big_shape[i] != padded_shape[i]:
-            # Raise an error if the dimensions don't match for broadcasting
-            raise IndexingError(
-                f"Index {big_index} is out of range for shape {big_shape}"
-            )
+   # Calculate how much padding we need
+    offset = len(big_shape) - len(shape)
+    
+    # First look at the original dimensions (working from the right)
+    for i in range(len(shape)):
+        # Get corresponding position from the end
+        big_i = i + offset
+        out_i = i
+        
+        if big_shape[big_i] == shape[i]:
+            # If dimensions match, copy the index
+            out_index[out_i] = big_index[big_i]
+        elif shape[i] == 1:
+            # If the smaller tensor has size 1, it's broadcasted - use index 0
+            out_index[out_i] = 0
         else:
-            # Otherwise, copy the index from the big tensor to out_index
-            out_index[i - pad_amount] = big_index[i]
+            # If dimensions don't match and neither is 1, we can't broadcast
+            raise IndexingError(f"Shape {shape} and {big_shape} are not broadcastable.")
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -97,19 +97,22 @@ class Add(Function):
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
+    def forward(ctx: Context, a: Tensor, dim: Optional[int] = None) -> Tensor:
         """Return 1 if all are true"""
         if dim is not None:
-            return a.f.mul_reduce(a, int(dim.item()))
+            return a.f.mul_reduce(a, dim)
         else:
             return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
-
 
 class Mul(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
         ctx.save_for_backward(a, b)
         return a.f.mul_zip(a, b)
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        a, b = ctx.saved_tensors
+        return grad_output * b, grad_output * a
     
 class Sigmoid(Function):
     @staticmethod
@@ -117,18 +120,30 @@ class Sigmoid(Function):
         out = a.f.sigmoid_map(a)
         ctx.save_for_backward(out)
         return out
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        out, = ctx.saved_tensors
+        return grad_output * out * (1 - out)
 
 class ReLU(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor) -> Tensor:
         ctx.save_for_backward(a)
         return a.f.relu_map(a)
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        a, = ctx.saved_tensors
+        return grad_output * (a > 0)
 
 class Log(Function):
     @staticmethod
     def forward(ctx:Context, a: Tensor) -> Tensor:
         ctx.save_for_backward(a)
         return a.f.log_map(a)
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        a, = ctx.saved_tensors
+        return grad_output / a
 
 class Exp(Function):
     @staticmethod
@@ -136,6 +151,10 @@ class Exp(Function):
         out = a.f.exp_map(a)
         ctx.save_for_backward(out)
         return out
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        out, = ctx.saved_tensors
+        return grad_output * out
 
 class Sum(Function):
     @staticmethod
@@ -156,13 +175,18 @@ class EQ(Function):
 class IsClose(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        return a.f.isclose_zip(a, b)
+        return a.f.is_close_zip(a, b)
 
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, *order: int) -> Tensor:
         ctx.save_for_backward(order)
         return a._new(a._tensor.permute(*order))
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
+        order, = ctx.saved_tensors
+        inv_order = [order.index(i) for i in range(len(order))]
+        return grad_output._new(grad_output._tensor.permute(*inv_order)), None
 
 class View(Function):
     @staticmethod
@@ -369,3 +393,4 @@ but was expecting derivative %f from central difference.
             1e-2,
             err_msg=err_msg % (f, vals, x.grad[ind], i, ind, check),
         )
+
