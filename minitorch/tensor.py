@@ -275,6 +275,86 @@ class Tensor:
         """Not used until Module 3"""
         return MatMul.apply(self, b)
 
+    def __add__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return Add.apply(self, b)
+    
+    def __radd__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return Add.apply(b, self)
+    
+    def __sub__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return Add.apply(self, Neg.apply(b))
+    
+    def __mul__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return Mul.apply(self, b)
+    
+    def __rmul__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return Mul.apply(b, self)
+    
+    def __neg__(self) -> Tensor:
+        return Neg.apply(self)
+
+    def __lt__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return LT.apply(self, b)
+    
+    def __gt__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return LT.apply(b, self)
+    
+    def __eq__(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return EQ.apply(self, b)
+    
+    def is_close(self, b: TensorLike) -> Tensor:
+        b = self._ensure_tensor(b)
+        return IsClose.apply(self, b)
+    
+    def sigmoid(self) -> Tensor:
+        return Sigmoid.apply(self)
+    
+    def relu(self) -> Tensor:
+        return ReLU.apply(self)
+    
+    def log(self) -> Tensor:
+        return Log.apply(self)
+    
+    def exp(self) -> Tensor:
+        return Exp.apply(self)
+    
+    def sum(self, dim: Optional[int] = None) -> Tensor:
+        """Sum the elements of the tensor across a dimension"""
+        if dim is None:
+            # Sum all elements
+            return Sum.apply(self.contiguous().view(self.size), 0)
+        return Sum.apply(self, dim)
+
+    def mean(self, dim: Optional[int] = None) -> Tensor:
+        """Mean the elements of the tensor across a dimension"""
+        if dim in None:
+            # Mean of all elements
+            return self.sum() / self.size
+        return self.sum(dim) / self.shape[dim]
+    
+    def permute(self, *dims: int) -> Tensor:
+        """Permute the dimensions of the tensor"""
+        return Permute.apply(self, *dims)
+    
+    def view(self, *shape: int) -> Tensor:
+        """View the tensor as a new shape"""
+        return View.apply(self, tensor(list(shape)))
+    
+    def all(self, dim: Optional[int] = None) -> Tensor:
+        return All.apply(self, tensor([dim]) if dim is not None else None)
+    
+    def zero_grad(self) -> None:
+        """Reset the gradient of the tensor"""
+        self.grad = None
+
     @property
     def shape(self) -> UserShape:
         """Returns
@@ -283,5 +363,13 @@ class Tensor:
         """
         return self._tensor.shape
 
-    # Functions
-    # TODO: Implement for Task 2.3.
+    @property
+    def size(self) -> int:
+        """Total number of elements in the tensor"""
+        return int(operators.prod(self.shape))
+    
+    @property
+    def dims(self) -> int:
+        """Number of dimensions in the tensor"""
+        return len(self.shape)
+
