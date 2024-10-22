@@ -106,12 +106,25 @@ class Add(Function):
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Optional[int] = None) -> Tensor:
-        """Return 1 if all are true"""
-        if dim is not None:
-            return a.f.mul_reduce(a, dim)
-        else:
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Return 1 if all elements are true along a given dimension."""
+        
+        # Handle optional dimension input
+        dim_value = int(dim.item()) if dim is not None else -1
+
+        # Save the dimension value as a tensor for the backward pass
+        ctx.save_for_backward(tensor([dim_value]))
+
+        # If dim is -1, perform reduction over all elements
+        if dim_value == -1:
             return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
+        else:
+            return a.f.mul_reduce(a, dim_value)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
+        """Backward pass for the All function."""
+        return grad_output, None
 
 class Mul(Function):
     @staticmethod
@@ -192,7 +205,6 @@ class Sum(Function):
         ones = minitorch.ones(shape, backend=grad_output.backend)
         total_elements = int(operators.prod(shape))  # Get total number of elements that were summed
         grad_input = grad_output.expand(ones) / total_elements
-        
         return grad_input,
 
 class LT(Function):
@@ -222,14 +234,33 @@ class IsClose(Function):
 
 class Permute(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, *order: int) -> Tensor:
+    def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
         ctx.save_for_backward(order)
-        return a._new(a._tensor.permute(*order))
+        order_list = [int(x) for x in order._tensor._storage.tolist()]
+        new_shape = tuple(a._tensor.shape[i] for i in order_list)
+        new_strides = tuple(a._tensor.strides[i] for i in order_list)
+        permuted_data = minitorch.Tensor.make(
+            a._tensor._storage, new_shape, new_strides, backend=a.backend
+        )
+        return permuted_data
+    
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
-        order, = ctx.saved_tensors
-        inv_order = [order.index(i) for i in range(len(order))]
-        return grad_output._new(grad_output._tensor.permute(*inv_order)), None
+        (order,) = ctx.saved_tensors
+        order_list = [int(x) for x in order._tensor._storage.tolist()]
+
+        # Compute the inverse permutation
+        inv_order = [0] * len(order_list)
+        for i, p in enumerate(order_list):
+            inv_order[p] = i
+
+        # Apply the inverse permutation to the gradient
+        grad_a = grad_output.permute(*inv_order)
+
+        # Return the gradient for 'a' and a zero tensor for 'order'
+        zero_order_grad = minitorch.zeros(order.shape, backend=grad_output.backend)
+        return grad_a, zero_order_grad
+
 
 class View(Function):
     @staticmethod

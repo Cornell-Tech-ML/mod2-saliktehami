@@ -283,7 +283,7 @@ class TensorData:
         new_shape = tuple(self.shape[i] for i in order)
         new_strides = tuple(self.strides[i] for i in order)
 
-        return TensorData(self._storage, new_shape, new_strides)
+        return TensorData(storage=self._storage, shape=new_shape, strides=new_strides)
 
     def to_string(self) -> str:
         """Convert to string"""

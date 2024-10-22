@@ -339,21 +339,21 @@ class Tensor:
     
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean the elements of the tensor across a dimension"""
-        if dim in None:
-            # Mean of all elements
-            return self.sum() / self.size
-        return self.sum(dim) / self.shape[dim]
+        return Mean.apply(self, self._ensure_tensor(dim) if dim is not None else None)
     
     def permute(self, *dims: int) -> Tensor:
         """Permute the dimensions of the tensor"""
-        return Permute.apply(self, *dims)
+        order_tensor = tensor(list(dims))
+        return Permute.apply(self, order_tensor)
     
     def view(self, *shape: int) -> Tensor:
         """View the tensor as a new shape"""
-        return View.apply(self, tensor(list(shape)))
+        shape_tensor = tensor(list(shape))
+        return View.apply(self, shape_tensor)
     
     def all(self, dim: Optional[int] = None) -> Tensor:
-        return All.apply(self, tensor([dim]) if dim is not None else None)
+        dim_tensor = tensor([dim] if dim is not None else [-1])
+        return All.apply(self, dim_tensor)
     
     def zero_grad_(self) -> None:
         """Reset the gradient of the tensor"""
