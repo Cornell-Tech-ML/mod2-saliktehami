@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 import minitorch
-
 from . import operators
 from .autodiff import Context
 from .tensor_ops import SimpleBackend, TensorBackend
@@ -25,7 +24,6 @@ def wrap_tuple(x: Any) -> tuple:  # type: ignore
     if isinstance(x, tuple):
         return x
     return (x,)
-
 
 # Constructors
 class Function:
@@ -70,7 +68,7 @@ class Neg(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        return grad_output.f.neg_map(grad_output)
+        return -1.0 * grad_output
 
 
 class Inv(Function):
@@ -88,6 +86,17 @@ class Inv(Function):
 class Add(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Performs the forward pass of the addition operation.
+
+        Args:
+            ctx (Context): Context object (unused in this case).
+            t1 (Tensor): First input tensor.
+            t2 (Tensor): Second input tensor.
+
+        Returns:
+            Tensor: A new tensor containing the element-wise sum of t1 and t2.
+
+        """
         return t1.f.add_zip(t1, t2)
 
     @staticmethod
@@ -123,7 +132,8 @@ class Sigmoid(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         out, = ctx.saved_tensors
-        return grad_output * out * (1 - out)
+        one = out._ensure_tensor(1.0)
+        return grad_output * out * (one - out)
 
 class ReLU(Function):
     @staticmethod
@@ -158,19 +168,52 @@ class Exp(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: int) -> Tensor:
-        ctx.save_for_backward(a.shape, dim)
-        return a.f.sum_reduce(a, dim)
+    def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Computes the forward pass for summation."""
+        # Save the input shape and dimension for backward pass
+        ctx.save_for_backward(t1.shape, dim)
+        
+        if dim is not None:
+            # If dimension is specified, convert it to int and sum along that dim
+            dim_val = int(dim.item())
+            return t1.f.add_reduce(t1, dim_val)
+        else:
+            # If no dimension specified, sum all elements
+            # First make tensor contiguous and reshape to 1D
+            flattened = t1.contiguous().view(t1.size)
+            return t1.f.add_reduce(flattened, 0)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor]:
+        """Computes the backward pass for summation."""
+        shape, _ = ctx.saved_values
+    
+        # Create ones tensor with original shape
+        ones = minitorch.ones(shape, backend=grad_output.backend)
+        total_elements = int(operators.prod(shape))  # Get total number of elements that were summed
+        grad_input = grad_output.expand(ones) / total_elements
+        
+        return grad_input,
 
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        ctx.save_for_backward(a, b)
         return a.f.lt_zip(a, b)
-
+    
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        a, b = ctx.saved_tensors
+        return a.zeros(a.shape), b.zeros(b.shape)
+    
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        ctx.save_for_backward(a, b)
         return a.f.eq_zip(a, b)
+    
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        a, b = ctx.saved_tensors
+        return a.zeros(a.shape), b.zeros(b.shape)
 
 class IsClose(Function):
     @staticmethod
@@ -262,6 +305,24 @@ def zeros(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
     return minitorch.Tensor.make(
         [0.0] * int(operators.prod(shape)), shape, backend=backend
     )
+
+def ones(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
+    """Produce a ones tensor of size `shape`.
+
+    Args:
+    ----
+        shape : shape of tensor
+        backend : tensor backend
+
+    Returns:
+    -------
+        new tensor
+
+    """
+    return minitorch.Tensor.make(
+        [1.0] * int(operators.prod(shape)), shape, backend=backend
+    )
+
 
 
 def rand(

@@ -333,9 +333,9 @@ class Tensor:
         """Sum the elements of the tensor across a dimension"""
         if dim is None:
             # Sum all elements
-            return Sum.apply(self.contiguous().view(self.size), Tensor.make([0], (1,), backend=self.backend))
+            return Sum.apply(self)
         else:
-            return Sum.apply(self, Tensor.make([dim], (1,), backend=self.backend))
+            return Sum.apply(self, self._ensure_tensor(dim))
     
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean the elements of the tensor across a dimension"""
