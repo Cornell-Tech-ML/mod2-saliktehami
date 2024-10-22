@@ -269,7 +269,11 @@ class Tensor:
         backpropagate(self, grad_output)
 
     def __truediv__(self, b: TensorLike) -> Tensor:
-        return Mul.apply(self, Inv.apply(self._ensure_tensor(b)))
+        print("\nDIVISION OPERATION:")
+        print(f"Dividing: {self} / {b}")
+        result = Mul.apply(self, Inv.apply(self._ensure_tensor(b)))
+        print(f"Result: {result}")
+        return result
 
     def __rtruediv__(self, b: TensorLike) -> Tensor:
         return Mul.apply(self._ensure_tensor(b), Inv.apply(self))
@@ -339,7 +343,23 @@ class Tensor:
     
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Mean the elements of the tensor across a dimension"""
-        return Mean.apply(self, self._ensure_tensor(dim) if dim is not None else None)
+        print(f"\nMEAN OPERATION:")
+        print(f"Input tensor: {self}")
+        print(f"Dimension: {dim}")
+        if dim is None:
+            total = self.sum()
+            n = float(self.size)
+            print(f"Total sum: {total}")
+            print(f"n (size): {n}")
+            result = total / n
+        else:
+            total = self.sum(dim)
+            n = float(self.shape[dim])
+            print(f"Total sum: {total}")
+            print(f"n (size): {n}")
+            result = total / n
+        print(f"Result: {result}")
+        return result
     
     def permute(self, *dims: int) -> Tensor:
         """Permute the dimensions of the tensor"""

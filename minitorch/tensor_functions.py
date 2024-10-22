@@ -74,13 +74,21 @@ class Neg(Function):
 class Inv(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
+        print("\nINV FORWARD:")
+        print(f"Input tensor: {t1}")
         ctx.save_for_backward(t1)
-        return t1.f.inv_map(t1)
+        result = t1.f.inv_map(t1)
+        print(f"Result: {result}")
+        return result
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (t1,) = ctx.saved_values
-        return grad_output.f.inv_back_zip(t1, grad_output)
+        print("\nINV BACKWARD:")
+        print(f"Incoming gradient: {grad_output}")
+        result = grad_output.f.inv_back_zip(t1, grad_output)
+        print(f"Resulting gradient: {result}")
+        return result
 
 
 class Add(Function):
@@ -129,12 +137,20 @@ class All(Function):
 class Mul(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        print("\nMUL FORWARD:")
+        print(f"Input tensors: {a}, {b}")
         ctx.save_for_backward(a, b)
-        return a.f.mul_zip(a, b)
+        result = a.f.mul_zip(a, b)
+        print(f"Result: {result}")
+        return result
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         a, b = ctx.saved_tensors
-        return grad_output * b, grad_output * a
+        print("\nMUL BACKWARD:")
+        print(f"Incoming gradient: {grad_output}")
+        result = grad_output * b, grad_output * a
+        print(f"Resulting gradients: {result}")
+        return result
     
 class Sigmoid(Function):
     @staticmethod
@@ -183,18 +199,22 @@ class Sum(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         """Computes the forward pass for summation."""
-        # Save the input shape and dimension for backward pass
+        print(f"\nSUM FORWARD:")
+        print(f"Input tensor: {t1}")
+        print(f"Dimension: {dim}")
+        
+        # Important: Save whether this was called with a dimension
         ctx.save_for_backward(t1.shape, dim)
         
         if dim is not None:
-            # If dimension is specified, convert it to int and sum along that dim
             dim_val = int(dim.item())
-            return t1.f.add_reduce(t1, dim_val)
+            result = t1.f.add_reduce(t1, dim_val)
         else:
-            # If no dimension specified, sum all elements
-            # First make tensor contiguous and reshape to 1D
             flattened = t1.contiguous().view(t1.size)
-            return t1.f.add_reduce(flattened, 0)
+            result = t1.f.add_reduce(flattened, 0)
+            
+        print(f"Result: {result}")
+        return result
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor]:
