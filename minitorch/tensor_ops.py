@@ -261,8 +261,26 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        #create index buffers
+        out_index = [0] * len(out_shape)
+        in_index = [0] * len(in_shape)
+
+        #Iterate over all elements in the output tensor
+        for i in range(operators.prod(out_shape)):
+            # Step 1 & 2: Convert linear index to out_index
+            to_index(i, out_shape, out_index)
+
+            # Step 3: Broadcast out_index to in_index
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+
+            # Step 4: Convert in_index to input storage position
+            in_position = index_to_position(in_index, in_strides)
+
+            # Step 5: Convert out_index to output storage position
+            out_position = index_to_position(out_index, out_strides)
+
+            # Step 6: Apply function and store
+            out[out_position] = fn(in_storage[in_position])
 
     return _map
 
@@ -306,8 +324,27 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        #Create index buffers
+        out_index = [0] * len(out_shape)
+        a_index = [0] * len(a_shape)
+        b_index = [0] * len(b_shape)
+
+        #Iterate overall all elements in the output tensor
+        for i in range(operators.prod(out_shape)):
+            #Step 1 & 2: Convert linear index to out_index
+            to_index(i, out_shape, out_index)
+
+            #Step 3: Broadcast out_index to a_index and b_index
+            broadcast_index(out_index, out_shape, a_shape, a_index)
+            broadcast_index(out_index, out_shape, b_shape, b_index)
+
+            #Step 4: Calculate storage positions
+            a_position = index_to_position(a_index, a_strides)
+            b_position = index_to_position(b_index, b_strides)
+            out_position = index_to_position(out_index, out_strides)
+
+            #Step 5: Apply function and store result
+            out[out_position] = fn(a_storage[a_position], b_storage[b_position])
 
     return _zip
 
@@ -337,8 +374,40 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        # Step 1: Create index buffers
+        out_index = [0] * len(out_shape)
+        a_index = [0] * len(a_shape)
+
+        # Step 2: Iterate over all elements in the output tensor
+        for i in range(operators.prod(out_shape)):
+            # Step 3: Convert linear index to out_index
+            to_index(i, out_shape, out_index)
+
+            # Step 4: Initialize a_index based on out_index
+            for j in range(len(out_index)):
+                a_index[j] = out_index[j]
+            
+            # Set the reduce_dim to 0 in a_index
+            a_index[reduce_dim] = 0
+
+            # Step 5: Calculate the initial positions
+            out_position = index_to_position(out_index, out_strides)
+            a_position = index_to_position(a_index, a_strides)
+
+            # Step 6: Initialize the accumulator with the start value
+            acc = a_storage[a_position]
+
+            #Step 7: Iterate over the reduce dimension
+            for j in range(1, a_shape[reduce_dim]):
+                # Update a_index for current position in reduce dimension
+                a_index[reduce_dim] = j
+                # Calculate new position in a_storage
+                a_position = index_to_position(a_index, a_strides)
+                # Apply reduction function to accumulate result
+                acc = fn(acc, a_storage[a_position])
+            
+            # Step 8: Store the accumulated result in the output tensor
+            out[out_position] = acc
 
     return _reduce
 

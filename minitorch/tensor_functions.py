@@ -105,8 +105,64 @@ class All(Function):
             return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
 
 
-# TODO: Implement for Task 2.3.
+class Mul(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        ctx.save_for_backward(a, b)
+        return a.f.mul_zip(a, b)
+    
+class Sigmoid(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        out = a.f.sigmoid_map(a)
+        ctx.save_for_backward(out)
+        return out
 
+class ReLU(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        ctx.save_for_backward(a)
+        return a.f.relu_map(a)
+
+class Log(Function):
+    @staticmethod
+    def forward(ctx:Context, a: Tensor) -> Tensor:
+        ctx.save_for_backward(a)
+        return a.f.log_map(a)
+
+class Exp(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        out = a.f.exp_map(a)
+        ctx.save_for_backward(out)
+        return out
+
+class Sum(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, dim: int) -> Tensor:
+        ctx.save_for_backward(a.shape, dim)
+        return a.f.sum_reduce(a, dim)
+
+class LT(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        return a.f.lt_zip(a, b)
+
+class EQ(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        return a.f.eq_zip(a, b)
+
+class IsClose(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        return a.f.isclose_zip(a, b)
+
+class Permute(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, *order: int) -> Tensor:
+        ctx.save_for_backward(order)
+        return a._new(a._tensor.permute(*order))
 
 class View(Function):
     @staticmethod
