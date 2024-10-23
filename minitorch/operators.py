@@ -1,7 +1,7 @@
 """Collection of the core mathematical operators used throughout the code base."""
 
 import math
-from typing import Callable, List
+from typing import Callable, List, Sequence, Union
 
 
 def mul(x: float, y: float) -> float:
@@ -358,7 +358,7 @@ def negList(x: List[float]) -> List[float]:
     return map(neg, x)
 
 
-def prod(x: List[float]) -> float:
+def prod(x: Sequence[Union[float, int]]) -> float:
     """Take the product of a list.
 
     Args:
@@ -370,7 +370,8 @@ def prod(x: List[float]) -> float:
         A float representing the product of x.
 
     """
-    return reduce(mul, x, 1.0)
+    float_list: List[float] = [float(item) for item in x]
+    return reduce(mul, float_list, 1.0)
 
 
 def sum(x: List[float]) -> float:

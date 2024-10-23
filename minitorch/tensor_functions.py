@@ -456,9 +456,9 @@ class Sum(Function):
         grad_input = grad_output.f.add_zip(grad, grad_output)
         # Return a tensor for grad_input and an integer/None for dim
         if dim is not None:
-            return (grad_input, 0)  # Return 0 instead of None for the dim gradient
+            return (grad_input, grad)  # Return two tensors
         else:
-            return (grad_input,)
+            return (grad_input,)  # Return single tensor in tuple
 
 
 class LT(Function):
@@ -557,17 +557,24 @@ class IsClose(Function):
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
-        """Perform the forward pass for the Permute function.
+        """Permutes the dimensions of a tensor according to the given order.
 
         Args:
         ----
-            ctx (Context): Context to store saved tensors.
+            ctx (Context): Context object to store information for backward pass.
             a (Tensor): Input tensor to be permuted.
-            order (Tensor): Tensor specifying the permutation order.
+            order (Tensor): A tensor containing the desired ordering of dimensions.
+                          For example, [2,0,1] would swap axis 0 and 2.
 
         Returns:
         -------
-            Tensor: The permuted tensor.
+            Tensor: A new tensor with dimensions reordered according to 'order'.
+                   The tensor's data remains the same, only the shape changes.
+
+        Example:
+        -------
+            If a has shape (2,3,4) and order is [2,0,1],
+            output will have shape (4,2,3).
 
         """
         ctx.save_for_backward(order)
@@ -580,33 +587,41 @@ class Permute(Function):
         return permuted_data
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
-        """Perform the backward pass for the Permute function.
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
+        """Computes gradients for the permute operation.
 
         Args:
         ----
-            ctx (Context): Context containing saved tensors.
-            grad_output (Tensor): Gradient of the output tensor.
+            ctx (Context): Context containing the saved order tensor.
+            grad_output (Tensor): Gradient of the loss with respect to the output
+                                of the forward pass.
 
         Returns:
         -------
-            Tuple[Tensor, None]: The gradient with respect to the input tensor and None for the order.
+            Tuple[Tensor, float]: A tuple containing:
+                - Gradient of input tensor: Created by applying inverse permutation
+                  to grad_output to match original tensor dimensions
+                - Gradient of order parameter: Always 0.0 since reordering indices
+                  is not differentiable
+
+        Note:
+        ----
+            The backward pass applies the inverse of the original permutation
+            to ensure gradients match the shape of original input tensor.
 
         """
         (order,) = ctx.saved_tensors
         order_list = [int(x) for x in order._tensor._storage.tolist()]
 
-        # Compute the inverse permutation
+        # Compute inverse permutation
         inv_order = [0] * len(order_list)
         for i, p in enumerate(order_list):
             inv_order[p] = i
 
-        # Apply the inverse permutation to the gradient
+        # Apply inverse permutation to gradient
         grad_a = grad_output.permute(*inv_order)
 
-        # Return the gradient for 'a' and a zero tensor for 'order'
-        zero_order_grad = minitorch.zeros(order.shape, backend=grad_output.backend)
-        return grad_a, zero_order_grad
+        return grad_a, 0.0
 
 
 class View(Function):
@@ -723,7 +738,7 @@ def ones(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
 
     """
     return minitorch.Tensor.make(
-        [1.0] * int(operators.prod(shape)), shape, backend=backend
+        [1.0] * int(operators.prod(list(map(float, shape)))), shape, backend=backend
     )
 
 
@@ -745,7 +760,9 @@ def rand(
         :class:`Tensor` : new tensor
 
     """
-    vals = [random.random() for _ in range(int(operators.prod(shape)))]
+    vals = [
+        random.random() for _ in range(int(operators.prod(list(map(float, shape)))))
+    ]
     tensor = minitorch.Tensor.make(vals, shape, backend=backend)
     tensor.requires_grad_(requires_grad)
     return tensor

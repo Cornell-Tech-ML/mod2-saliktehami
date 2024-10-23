@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import numpy as np
 from typing import TYPE_CHECKING, Callable, Optional, Type
 
 from typing_extensions import Protocol
@@ -40,20 +40,8 @@ class TensorOps:
     def reduce(
         fn: Callable[[float, float], float], start: float = 0.0
     ) -> Callable[[Tensor, int], Tensor]:
-        """Create a reduction operation on a tensor.
-
-        Args:
-        ----
-            fn (Callable): A function that takes two floats and returns a float,
-                representing the operation to apply during reduction (e.g., sum, max).
-            start (float, optional): Initial value for the reduction. Default is 0.0.
-
-        Returns:
-        -------
-            Callable[[Tensor, int], Tensor]: A function that performs the reduction
-                operation on a tensor along a given dimension.
-
-        """
+        """Reduce placeholder"""
+        ...
 
     @staticmethod
     def matrix_multiply(a: Tensor, b: Tensor) -> Tensor:
@@ -272,11 +260,11 @@ def tensor_map(
         in_strides: Strides,
     ) -> None:
         # create index buffers
-        out_index = [0] * len(out_shape)
-        in_index = [0] * len(in_shape)
+        out_index = np.array([0] * len(out_shape), dtype=np.int32)
+        in_index = np.array([0] * len(in_shape), dtype=np.int32)
 
         # Iterate over all elements in the output tensor
-        for i in range(int(operators.prod(out_shape))):
+        for i in range(len(out)):
             # Step 1 & 2: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 
@@ -337,12 +325,12 @@ def tensor_zip(
         b_strides: Strides,
     ) -> None:
         # Create index buffers
-        out_index = [0] * len(out_shape)
-        a_index = [0] * len(a_shape)
-        b_index = [0] * len(b_shape)
+        out_index = np.array([0] * len(out_shape), dtype=np.int32)
+        a_index = np.array([0] * len(a_shape), dtype=np.int32)
+        b_index = np.array([0] * len(b_shape), dtype=np.int32)
 
         # Iterate overall all elements in the output tensor
-        for i in range(int(operators.prod(out_shape))):
+        for i in range(len(out)):
             # Step 1 & 2: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 
@@ -389,11 +377,11 @@ def tensor_reduce(
         reduce_dim: int,
     ) -> None:
         # Step 1: Create index buffers
-        out_index = [0] * len(out_shape)
-        a_index = [0] * len(a_shape)
+        out_index = np.array([0] * len(out_shape), dtype=np.int32)
+        a_index = np.array([0] * len(a_shape), dtype=np.int32)
 
         # Step 2: Iterate over all elements in the output tensor
-        for i in range(int(operators.prod(out_shape))):
+        for i in range(len(out)):
             # Step 3: Convert linear index to out_index
             to_index(i, out_shape, out_index)
 
