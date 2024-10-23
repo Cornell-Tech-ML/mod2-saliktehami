@@ -480,7 +480,8 @@ class LT(Function):
         ctx.save_for_backward(a, b)
         return a.f.lt_zip(a, b)
 
-    def backward(self, ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for less than comparison.
 
         Args:
@@ -516,7 +517,8 @@ class EQ(Function):
         ctx.save_for_backward(a, b)
         return a.f.eq_zip(a, b)
 
-    def backward(self, ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for equality comparison.
 
         Args:
