@@ -280,7 +280,7 @@ class Tensor:
         assert self.history is not None
         return self.history.inputs
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+    def chain_rule(self, d: Any) -> Iterable[Tuple[Variable, Any]]:
         """Apply the chain rule to compute the derivatives of the parent variables.
 
         This method uses the chain rule to propagate the gradient (derivative)
@@ -290,7 +290,7 @@ class Tensor:
 
         Args:
         ----
-        d_output : The gradient of the current variable.
+            d: The gradient of the current variable.
 
         Returns:
         -------
@@ -304,7 +304,7 @@ class Tensor:
         assert h.last_fn is not None
         assert h.ctx is not None
 
-        x = h.last_fn._backward(h.ctx, d_output)
+        x = h.last_fn._backward(h.ctx, d)
         assert len(x) == len(h.inputs), f"Bug in function {h.last_fn}"
         return [
             (inp, inp.expand(self._ensure_tensor(d_in)))

@@ -11,9 +11,9 @@ import minitorch
 class Network(minitorch.Module):
     def __init__(self, hidden_layers):
         super().__init__()
-        self.layer1 = Linear(in_size=2, out_size=hidden_layers)
-        self.layer2 = Linear(in_size=hidden_layers, out_size=hidden_layers)
-        self.layer3 = Linear(in_size=hidden_layers, out_size=1)
+        self.layer1 = Linear(2, hidden_layers)
+        self.layer2 = Linear(hidden_layers, hidden_layers)
+        self.layer3 = Linear(hidden_layers, 1)
 
     def forward(self, x):
         middle = [h.relu() for h in self.layer1.forward(x)]
@@ -63,14 +63,11 @@ class Linear(minitorch.Module):
 
         return xavier_weights
     def forward(self, inputs):
-        out = []
-        for k in range(len(self.bias)):
-            total = self.bias[k].value
-            for i in range(len(inputs)):
-                total += inputs[i] * self.weights[i][k].value
-            out.append(total)
-        return out
-
+        y = [b.value for b in self.bias]
+        for i, x in enumerate(inputs):
+            for j in range(len(y)):
+                y[j] = y[j] + x * self.weights[i][j].value
+        return y
 
 
 def default_log_fn(epoch, total_loss, correct, losses):

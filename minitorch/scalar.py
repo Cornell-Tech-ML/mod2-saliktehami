@@ -233,7 +233,7 @@ class Scalar:
         assert self.history is not None
         return self.history.inputs
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+    def chain_rule(self, d: Any) -> Iterable[Tuple[Variable, Any]]:
         """Applies the chain rule to compute gradients for the inputs of this Scalar's last operation.
         This method is a key part of the backpropagation process. It computes local gradients
         for each input of the last operation performed on this Scalar, pairs these gradients
@@ -241,7 +241,7 @@ class Scalar:
 
         Args:
         ----
-        d_output (Any): The gradient flowing back from the next operation in the
+        d: The gradient flowing back from the next operation in the
                         computational graph. This is typically a float, but may be
                         a more complex type for operations with multiple outputs.
 
@@ -263,7 +263,7 @@ class Scalar:
         assert h.last_fn is not None
         assert h.ctx is not None
 
-        local_grads = h.last_fn._backward(h.ctx, d_output)
+        local_grads = h.last_fn._backward(h.ctx, d)
         if not isinstance(local_grads, Iterable):
             local_grads = [local_grads]
 

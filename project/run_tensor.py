@@ -4,7 +4,7 @@ Be sure you have minitorch installed in you Virtual Env.
 """
 
 import minitorch
-
+import random
 
 def RParam(*shape):
     r = 2 * (minitorch.rand(shape) - 0.5)
@@ -19,23 +19,25 @@ class Network(minitorch.Module):
 
     def forward(self, x):
         middle = self.layer1.forward(x).relu()
-        end = self.layer2.forward(middle).relu()
-        return self.layer3.forward(end).sigmoid()
+        hidden = self.layer2.forward(middle).relu()
+        output = self.layer3.forward(hidden).sigmoid()
+        return output
 
-class Linear(minitorch.Module):
-    def __init__(self, in_size, out_size):  # Corrected __init__ method
-        super().__init__()  # Call the parent class constructor correctly
-        self.weights = RParam(in_size, 1, out_size)  # (in, 1, out)
-        self.bias = RParam(out_size)  # (out,)
-        self.in_size = in_size
-        self.out_size = out_size
+class Linear (minitorch.Module):
+    def __init__(self, in_size, out_size):
+        super().__init__()
+        backend = minitorch.TensorBackend(minitorch.SimpleOps)
+        random_weights = [(2 * (random.random() - 0.5)) for _ in range(in_size * out_size)]
+        random_bias = [2 * (random.random() - 0.5) for _ in range(out_size)]
+        self.weights = self.add_parameter("weight", minitorch.Tensor.make(random_weights, (in_size, out_size), backend=backend))
+        self.bias = self.add_parameter("bias", minitorch.Tensor.make(random_bias, (1, out_size), backend=backend))
 
-    def forward(self, inputs):
-        b_size = inputs.shape[0]
-        inputs_T = inputs.view(1, b_size, self.in_size).permute(2, 1, 0)
-        broadcasted = self.weights.value * inputs_T
-        product = broadcasted.sum(0).view(b_size, self.out_size)
-        return product + self.bias.value
+    def forward(self, x: minitorch.Tensor):
+        x_reshaped = x.view(*x.shape, 1)
+        product = x_reshaped * self.weights.value
+        result = product.sum(1).view(product.shape[0], product.shape[2])
+        result = result + self.bias.value
+        return result
 
 def default_log_fn(epoch, total_loss, correct, losses):
     print(f"Epoch {epoch}, Loss: {total_loss:.4f}, Correct: {correct}")
@@ -60,16 +62,27 @@ class TensorTrain:
         X = minitorch.tensor(data.X)
         y = minitorch.tensor(data.y)
 
+        print(f"Training data X shape: {X.shape}")
+        print(f"Training data y shape: {y.shape}")
+
         losses = []
         for epoch in range(1, self.max_epochs + 1):
+            if epoch % 50 == 0:  # Print every 50 epochs
+                print(f"\nEpoch {epoch}:")
+                print(f"Layer1 weight mean: {self.model.layer1.weights.value.sum()[0]}")
+                print(f"Layer2 weight mean: {self.model.layer2.weights.value.sum()[0]}")
+                print(f"Layer3 weight mean: {self.model.layer3.weights.value.sum()[0]}")
+
             total_loss = 0.0
             correct = 0
             optim.zero_grad()
 
             # Forward
             out = self.model.forward(X).view(data.N)
-            prob = (out * y) + (out - 1.0) * (y - 1.0)
+            if epoch % 50 == 0:
+                print(f"Output mean: {out.sum()[0] / data.N}")
 
+            prob = (out * y) + (out - 1.0) * (y - 1.0)
             loss = -prob.log()
             (loss / data.N).sum().view(1).backward()
             total_loss = loss.sum().view(1)[0]
@@ -87,7 +100,7 @@ class TensorTrain:
 
 if __name__ == "__main__":
     PTS = 50
-    HIDDEN = 2
-    RATE = 0.5
+    HIDDEN = 8
+    RATE = 0.1
     data = minitorch.datasets["Simple"](PTS)
     TensorTrain(HIDDEN).train(data, RATE)
