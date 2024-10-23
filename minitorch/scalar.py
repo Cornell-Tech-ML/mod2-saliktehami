@@ -69,29 +69,136 @@ class Scalar:
         object.__setattr__(self, "unique_id", _var_count)
         object.__setattr__(self, "name", str(self.unique_id))
         object.__setattr__(self, "data", float(self.data))
+        print(
+            f"Scalar created: {self}, is_leaf: {self.is_leaf()}, data: {self.data}, history: {self.history}"
+        )
 
     def __repr__(self) -> str:
         return f"Scalar({self.data})"
 
     def __mul__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
         return Mul.apply(self, b)
 
     def __truediv__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
         return Mul.apply(self, Inv.apply(b))
 
     def __rtruediv__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
         return Mul.apply(b, Inv.apply(self))
 
     def __bool__(self) -> bool:
         return bool(self.data)
 
     def __radd__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
         return self + b
 
     def __rmul__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
         return self * b
 
-    # Variable elements for backprop
+    def __lt__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
+        return LT.apply(self, b)
+
+    def __gt__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
+        return LT.apply(b, self)
+
+    def __sub__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
+        return Add.apply(self, Neg.apply(b))
+
+    def __rsub__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
+        return Add.apply(b, Neg.apply(self))
+
+    def __neg__(self) -> Scalar:
+        return Neg.apply(self)
+
+    def __add__(self, b: ScalarLike) -> Scalar:
+        if isinstance(b, (int, float)):
+            return Add.apply(self, Scalar(b))
+        return Add.apply(self, b)
+
+    def log(self) -> Scalar:
+        """Applies the natural logarithm function to the scalar value.
+
+        Returns
+        -------
+            A new Scalar object representing the natural logarithm of the original scalar value.
+
+        """
+        return Log.apply(self)
+
+    def exp(self) -> Scalar:
+        """Applies the exponential function to the scalar value.
+
+        Returns
+        -------
+        Scalar
+            A new Scalar object representing e raised to the power of the original scalar value.
+
+        """
+        return Exp.apply(self)
+
+    def sigmoid(self) -> Scalar:
+        """Applies the sigmoid function to the scalar value.
+
+        The sigmoid function is defined as: f(x) = 1 / (1 + e^(-x))
+
+        Returns
+        -------
+        Scalar
+            A new Scalar object representing the result of the sigmoid function applied to the original scalar value.
+
+        """
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Scalar:
+        """Applies the Rectified Linear Unit (ReLU) function to the scalar value.
+
+        The ReLU function is defined as: f(x) = max(0, x)
+
+        Returns
+        -------
+        Scalar
+            A new Scalar object representing the result of the ReLU function applied to the original scalar value.
+
+        """
+        return ReLU.apply(self)
+
+    def __eq__(self, b: ScalarLike) -> Scalar:
+        """Checks equality between this scalar and another scalar-like value.
+
+        Args:
+        ----
+        b : ScalarLike
+            The value to compare with this scalar. Can be a Scalar, float, or int.
+
+        Returns:
+        -------
+        Scalar
+            A new Scalar object representing the result of the equality comparison (1.0 if equal, 0.0 if not equal).
+
+        """
+        if isinstance(b, (int, float)):
+            b = Scalar(b)
+        return EQ.apply(self, b)
+
+    def __hash__(self) -> float:
+        return hash(self.unique_id)
 
     def accumulate_derivative(self, x: Any) -> None:
         """Add `val` to the the derivative accumulated on this variable.
@@ -102,6 +209,7 @@ class Scalar:
             x: value to be accumulated
 
         """
+        print(f"Accumulating derivative for Scalar with ID {id(self)}")
         assert self.is_leaf(), "Only leaf variables can have derivatives."
         if self.derivative is None:
             self.__setattr__("derivative", 0.0)
@@ -112,21 +220,57 @@ class Scalar:
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """True if this scalar is a constant (i.e. its history is None)."""
         return self.history is None
 
     @property
     def parents(self) -> Iterable[Variable]:
-        """Get the variables used to create this one."""
+        """Returns:
+        -------
+        Iterable[Variable]: An iterable of the parent variables of this scalar.
+
+        """
         assert self.history is not None
         return self.history.inputs
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+    def chain_rule(self, d: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Applies the chain rule to compute gradients for the inputs of this Scalar's last operation.
+        This method is a key part of the backpropagation process. It computes local gradients
+        for each input of the last operation performed on this Scalar, pairs these gradients
+        with their corresponding input variables, and filters out any constants.
+
+        Args:
+        ----
+        d: The gradient flowing back from the next operation in the
+                        computational graph. This is typically a float, but may be
+                        a more complex type for operations with multiple outputs.
+
+        Returns:
+        -------
+        Iterable[Tuple[Variable, Any]]: A list of tuples, each containing:
+            - An input Variable to the last operation.
+            - The gradient of the output with respect to that input.
+          Constants (Variables that don't require gradients) are excluded from this list.
+
+        Note:
+        ----
+        This method is typically called internally during the backward pass and is a crucial
+        component in implementing reverse-mode automatic differentiation.
+
+        """
         h = self.history
         assert h is not None
         assert h.last_fn is not None
         assert h.ctx is not None
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+        local_grads = h.last_fn._backward(h.ctx, d)
+        if not isinstance(local_grads, Iterable):
+            local_grads = [local_grads]
+
+        paired_grads = zip(h.inputs, local_grads)
+        result = [(x, grad) for x, grad in paired_grads if not x.is_constant()]
+
+        return result
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """Calls autodiff to fill in the derivatives for the history of this object.
@@ -141,17 +285,16 @@ class Scalar:
             d_output = 1.0
         backpropagate(self, d_output)
 
-    raise NotImplementedError("Need to include this file from past assignment.")
-
 
 def derivative_check(f: Any, *scalars: Scalar) -> None:
     """Checks that autodiff works on a python function.
-    Asserts False if derivative is incorrect.
 
-    Parameters
-    ----------
-        f : function from n-scalars to 1-scalar.
-        *scalars  : n input scalar values.
+    Args:
+    ----
+    f (Any): The function to check.
+    *scalars (Scalar): Variable number of scalar inputs for the function.
+
+    Asserts False if derivative is incorrect.
 
     """
     out = f(*scalars)
